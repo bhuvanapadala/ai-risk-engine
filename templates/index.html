@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Risk Analyzer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>AI Risk & Decision Analysis</h1>
+
+        
+        <button onclick="startVoice()">🎤 Speak</button><br><br>
+        <textarea id="inputText" placeholder="Paste your content here..."></textarea>
+        <input type="file" id="fileInput">
+        <button class="clear-btn" onclick="clearFile()">X Remove</button><br>
+
+        <button onclick="analyze()">Analyze</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script src="/static/script.js"></script>
+
+</body>
+</html>
