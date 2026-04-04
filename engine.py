@@ -1,11 +1,13 @@
 import os
+import re
 import requests
 import json
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.getenv("OPENROUTER_API_KEY")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -41,8 +43,7 @@ def analyze_with_ai(user_input, category):
     prompt = f"""
 You are an expert risk analysis AI.
 
-Analyze the following input. Automatically detect its type 
-(email,message, contract, loan, app permissions, job offer, etc.) and return STRICT JSON.
+Analyze the input, Automatically detect its type(email,message, contract, loan, app permissions, job offer, etc.) and return STRICT JSON.
 
 INPUT:
 {user_input}
@@ -72,52 +73,47 @@ OUTPUT FORMAT:
   "final_decision": ""
 }}
 
-ONLY RETURN JSON. NO EXTRA TEXT.
+ONLY RETURN JSON. NO EXPLANATION. NO EXTRA TEXT.
 """
 
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    MODELS = [
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    ]
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:5000",
-        "X-Title": "AI Risk Analyzer"
+    for model_name in MODELS:
+        try:
+            print(f"Trying model: {model_name}")
+
+            model = genai.GenerativeModel(model_name)
+
+            response = model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.3}
+            )
+
+            content = response.text
+
+            print("RAW RESPONSE:", content[:200])
+
+            content = content.strip()
+
+            if content.startswith("```"):
+                content = content.replace("```json", "").replace("```", "").strip()
+
+            # 🔥 Convert to JSON
+            parsed_json = json.loads(content)
+
+            return parsed_json
+
+        except Exception as e:
+            print(f"❌ Model failed: {model_name} → {e}")
+            continue
+
+    return {
+        "error": "All Gemini models failed"
     }
 
-    data = {
-        "model": "openrouter/auto",
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.3
-    }
-
-    response = requests.post(url, headers=headers, json=data)
-
-    print("STATUS:", response.status_code)
-    print("RAW RESPONSE:", response.text)
-
-    if response.status_code != 200:
-        return {"error": response.text}
-
-    result = response.json()
-    
-
-    try:
-        content = result["choices"][0]["message"]["content"]
-
-        # 🔥 Remove markdown ```json ```
-        if content.startswith("```"):
-            content = content.replace("```json", "").replace("```", "").strip()
-
-        # 🔥 Convert string → JSON
-        parsed_json = json.loads(content)
-
-        return parsed_json
-
-    except Exception as e:
-        return {
-            "error": "Failed to parse AI response",
-            "details": str(e),
-            "raw": content if 'content' in locals() else None
-        }
