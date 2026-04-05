@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+def get_groq_client():
+    return Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -81,12 +82,12 @@ ONLY RETURN JSON. NO EXTRA TEXT.GIVE CLEAR EXPLANATIONS.
         "llama-3.1-8b-instant",
         "qwen/qwen3-32b"
     ]
-
+    client = get_groq_client()
     for model_name in GROQ_MODELS:
         try:
             print(f"Trying Groq model: {model_name}")
 
-            response = groq_client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "You are an expert risk analysis AI. Return ONLY valid JSON."},
