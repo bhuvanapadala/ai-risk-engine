@@ -2,12 +2,12 @@ import os
 import re
 import requests
 import json
-import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -73,36 +73,35 @@ OUTPUT FORMAT:
   "final_decision": ""
 }}
 
-ONLY RETURN JSON. NO EXPLANATION. NO EXTRA TEXT.
+ONLY RETURN JSON. NO EXTRA TEXT.GIVE CLEAR EXPLANATIONS.
 """
 
-    MODELS = [
-        "gemini-2.5-flash-lite",
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
+    GROQ_MODELS = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "qwen/qwen3-32b"
     ]
 
-    for model_name in MODELS:
+    for model_name in GROQ_MODELS:
         try:
-            print(f"Trying model: {model_name}")
+            print(f"Trying Groq model: {model_name}")
 
-            model = genai.GenerativeModel(model_name)
-
-            response = model.generate_content(
-                prompt,
-                generation_config={"temperature": 0.3}
+            response = groq_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": "You are an expert risk analysis AI. Return ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3
             )
 
-            content = response.text
+            content = response.choices[0].message.content.strip()
 
             print("RAW RESPONSE:", content[:200])
 
-            content = content.strip()
-
+            # 🔥 Clean markdown if exists
             if content.startswith("```"):
-                content = content.replace("```json", "").replace("```", "").strip()
+                content = re.sub(r"```json|```", "", content).strip()
 
             # 🔥 Convert to JSON
             parsed_json = json.loads(content)
@@ -110,10 +109,9 @@ ONLY RETURN JSON. NO EXPLANATION. NO EXTRA TEXT.
             return parsed_json
 
         except Exception as e:
-            print(f"❌ Model failed: {model_name} → {e}")
+            print(f"❌ Groq failed: {model_name} → {e}")
             continue
 
     return {
-        "error": "All Gemini models failed"
+        "error": "All Groq models failed"
     }
-
